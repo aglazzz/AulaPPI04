@@ -1,0 +1,31 @@
+{
+  "name": "aulappi02",
+  "version": "1.0.0",
+  "description": "exemplo de implementacao e tratamento do metodo HTTP POST",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aglazzz/AulaPPI02.git"
+  },
+  "keywords": [
+    "javascript",
+    "nodejs",
+    "express",
+    "http",
+    "post"
+  ],
+  "author": "manu",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aglazzz/AulaPPI02/issues"
+  },
+  "homepage": "https://github.com/aglazzz/AulaPPI02#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
