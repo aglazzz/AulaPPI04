@@ -1,4 +1,6 @@
 import express from "express";
+import cookieParser from "cookie-parser";
+import session from "express-session";
 
 const host = "0.0.0.0";
 const porta = 3000;
@@ -6,13 +8,40 @@ var listaUsuarios = [];
 
 const server = express();
 
+// na aula 04 vamos estudar o uso de sessao e de cookies para dar ao servidor e ao cliente
+//capacidade de manter informacoes entre as requisicoes e respostas
+//implementar cookies: informacoes sobre o ultimo acesso
+//uso de sessao: login no sistema
+//para manipular cookies, vamos usar o middleware 'cookie-parser'
+//para gerenciar uma sessao, vamos usar o middleware 'express-session'
+
+//preparar o servidor a fim de identificar se um determinado usuario esta logado ou nao
+//sera preciso criar sessoes na aplicacao
+server.use(session({
+    secret:"manu123",
+    resave: true, 
+    saveUninitialized: true, 
+        maxAge: 1000 * 60 * 15 // 1000ms = 1s * 60 = 1min * 15 = 15min
+    }
+));
+
 //preparar o servidor a fim de processar dados vindos no corpo da requisicao
 server.use(express.urlencoded({extended: true}));
 
+//preparar o servidor para usar o cookie-parser
+server.use(cookieParser());
 
-server.get("/", (requisicao, resposta) => {
+
+
+server.get("/", verificarUsuarioLogado, (requisicao, resposta) => {
     //disponibilizar o menu para o usuario
-    resposta.send(`
+    //verificar a exustencia do cookie
+    let ultimoAcesso = requisicao.cookies?.ultimoAcesso;
+
+    const data = new Date();
+    resposta.cookie("ultimoAcesso", data.toLocaleString());
+    resposta.setHeader("Content-Type", "text/html");
+    resposta.write(`
             <DOCTYPE html>
             <html>
                 <head>
@@ -46,13 +75,21 @@ server.get("/", (requisicao, resposta) => {
                         </ul>
                         </div>
                     </div>
+                    <div class="container-fluid">
+                        <div class="d-flex">
+                            <div class="p-2">
+                                <p>Ultimo acesso: ${ultimoAcesso || " Primeiro acesso"}</p>
+                            </div>
+                        </div>
                     </nav>
                 </body>
                 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
             </html>
         `);
+
+        resposta.end();
 });
-server.get("/cadastroUsuario", (requisicao, resposta) => {
+server.get("/cadastroUsuario", verificarUsuarioLogado, (requisicao, resposta) => {
     resposta.send(`
             <DOCTYPE html>
             <html>
@@ -136,7 +173,7 @@ server.get("/cadastroUsuario", (requisicao, resposta) => {
         `);
 });
 
-server.post('/adicionarUsuario', (requisicao, resposta) => {
+server.post('/adicionarUsuario', verificarUsuarioLogado, (requisicao, resposta) => {
     
     const nome = requisicao.body.nome;
     const sobrenome = requisicao.body.sobrenome;
@@ -288,7 +325,7 @@ server.post('/adicionarUsuario', (requisicao, resposta) => {
 
 });
 
-server.get("/listarUsuarios", (requisicao, resposta) => {
+server.get("/listarUsuarios", verificarUsuarioLogado, (requisicao, resposta) => {
     let conteudo = `
         <DOCTYPE html>
         <html>
@@ -338,6 +375,104 @@ server.get("/listarUsuarios", (requisicao, resposta) => {
 
     resposta.send(conteudo);
 });
+
+server.get("/login", (requisicao, resposta) => {
+    resposta.send(`
+            <!DOCTYPE html>
+
+            <head>
+                <meta charset="utf-8">
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+                    integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+            </head>
+
+            <body>
+                <div class="container w-25">
+                    <form action='/login' method='POST' class="row g-3 needs-validation" novalidate>
+                        <fieldset class="border p-2">
+                            <legend class="mb-3">Autenticação do Sistema</legend>
+                            <div class="col-md-4">
+                                <label for="" class="form-label">Usuário:</label>
+                                <input type="text" class="form-control" id="usuario" name="usuario" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="senha" class="form-label">Senha</label>
+                                <input type="password" class="form-control" id="senha" name="senha" required>
+                            </div>
+                            <div class="col-12 mt-2">
+                                <button class="btn btn-primary" type="submit">Login</button>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div>
+                <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+                    integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+                    crossorigin="anonymous"></script>
+            </body>
+
+            </html>       
+        `)
+});
+
+server.post("/login", (requisicao, resposta) => {
+    const {usuario, senha} = requisicao.body;
+
+    if(usuario === "admin" && senha === "admin"){
+    requisicao.session.dadosLogin = {
+        nome: "Administrador",
+        logado: true,
+    }
+        resposta.redirect("/");
+    }else{
+        resposta.write(`
+                <!DOCTYPE html>
+
+                <head>
+                    <meta charset="utf-8">
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+                        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+                </head>
+
+                <body>
+                    <div class="container w-25">
+                        <form action='/login' method='POST' class="row g-3 needs-validation" novalidate>
+                            <fieldset class="border p-2">
+                                <legend class="mb-3">Autenticação do Sistema</legend>
+                                <div class="col-md-4">
+                                    <label for="" class="form-label">Usuário:</label>
+                                    <input type="text" class="form-control" id="usuario" name="usuario" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="senha" class="form-label">Senha</label>
+                                    <input type="password" class="form-control" id="senha" name="senha" required>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <button class="btn btn-primary" type="submit">Login</button>
+                                </div>
+                            </fieldset>
+                        </form>
+                        <div class="col-12 mt-2">
+                            <p class="text-danger">Usuário ou senha inválidos!</p>
+                        </div>
+                    </div>
+                    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+                        integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+                        crossorigin="anonymous"></script>
+                </body>
+
+                </html>              
+            `)
+    }
+});
+// funcao middleware para verificar se o usuario esta logado
+function verificarUsuarioLogado(requisicao, resposta, proximo){
+    if(requisicao.session.dadosLogin?.logado){
+        proximo();
+    }else{
+        resposta.redirect("/login");
+    }
+}
+
 server.listen(porta, host, () => {
     console.log(`Servidor executando em http://${host}:${porta}`);
 });
